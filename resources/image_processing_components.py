@@ -1,8 +1,8 @@
-import numpy as np
 from keras import backend as K
 from keras.preprocessing.image import load_img, img_to_array
-import matplotlib.pyplot as plt
 from keras.applications import vgg19
+import numpy as np
+import matplotlib.pyplot as plt
 import tensorflow as tf
 
 tf.compat.v1.disable_eager_execution()
@@ -52,5 +52,7 @@ def plot_results(
     plt.subplot(5, 5, 1 + 2)
     plt.title("Final Image", fontsize=20)
     plt.imshow(imgx)
+
+    plt.show()
 
     plt.savefig(CombinedPath + "/FINAL_3_results.png")

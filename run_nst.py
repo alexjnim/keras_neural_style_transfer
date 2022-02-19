@@ -160,15 +160,15 @@ if __name__ == "__main__":
 
     parser.add_argument(
         "--BASE_IMAGE_NAME",
-        "-bin",
-        default="esther3.jpg",
+        "-b",
+        default="esther2.jpg",
         action="store",
         type=str,
         help="",
     )
     parser.add_argument(
         "--STYLE_IMAGE_NAME",
-        "-sin",
+        "-s",
         default="renoir.jpeg",
         action="store",
         type=str,
