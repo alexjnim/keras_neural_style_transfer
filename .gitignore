@@ -1,7 +1,10 @@
+keras_nst/
 .DS_Store
 *.jpeg
 *.jpg
 *.png
+
+
 # vscode stuff ()
 .vscode/
 !.vscode/settings.json
