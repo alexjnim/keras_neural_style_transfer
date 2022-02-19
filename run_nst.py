@@ -13,7 +13,6 @@ tf.compat.v1.disable_eager_execution()
 
 
 def run_style_transfer(
-    combined_folder_name: str,
     base_image_name: str,
     style_image_name: str,
     content_weight: float,
@@ -22,16 +21,15 @@ def run_style_transfer(
     iterations: int,
 ):
 
-    dir = os.path.join("images", "combined_images", combined_folder_name)
-    if not os.path.exists(dir):
-        os.mkdir(dir)
-
-    ContentPath = "images/base_images/"
-    StylePath = "images/style_images/"
-    CombinedPath = dir
-
-    base_image_path = ContentPath + base_image_name
-    style_image_path = StylePath + style_image_name
+    base_image_path = "images/base_images/" + base_image_name
+    style_image_path = "images/style_images/" + style_image_name
+    combined_folder_path = os.path.join(
+        "images",
+        "combined_images",
+        base_image_name.split(".")[0] + "_2_" + style_image_name.split(".")[0],
+    )
+    if not os.path.exists(combined_folder_path):
+        os.mkdir(combined_folder_path)
 
     # dimensions of the generated picture.
     width, height = load_img(base_image_path).size
@@ -114,7 +112,7 @@ def run_style_transfer(
 
     evaluator = Evaluator(img_nrows, img_ncols, f_outputs)
 
-    # storing best results here
+    # create variables for storing best results here
     best_loss, best_iteration, best_img = float("inf"), 0, None
 
     for i in tqdm(range(iterations)):
@@ -131,20 +129,28 @@ def run_style_transfer(
         # saving results every 5 interations
         if i % 5 == 0:
             imgx = deprocess_image(x_opt.copy(), img_nrows, img_ncols)
-            plt.imsave(CombinedPath + "/combined_result_%d.png" % i, imgx)
+            plt.imsave(combined_folder_path + "/intermediate_result_%d.png" % i, imgx)
 
         if min_val < best_loss:
             # Update best loss and best image from total loss.
+            print(f"iteration {i} results being saved now")
             best_loss = min_val
             best_iteration = i
             best_img = x_opt.copy()
 
     best = deprocess_image(best_img.copy(), img_nrows, img_ncols)
-    final_image_path = CombinedPath + "/FINAL_IMAGE_" + str(best_iteration) + ".png"
+    final_image_path = (
+        combined_folder_path + "/FINAL_IMAGE_" + str(best_iteration) + ".png"
+    )
     plt.imsave(final_image_path, best)
 
     plot_results(
-        best_img, base_image_path, style_image_path, img_nrows, img_ncols, CombinedPath
+        best_img,
+        base_image_path,
+        style_image_path,
+        img_nrows,
+        img_ncols,
+        combined_folder_path,
     )
 
 
@@ -164,15 +170,6 @@ if __name__ == "__main__":
         "--STYLE_IMAGE_NAME",
         "-sin",
         default="van_gogh.jpg",
-        action="store",
-        type=str,
-        help="",
-    )
-
-    parser.add_argument(
-        "--COMBINED_FOLDER_NAME",
-        "-cfn",
-        default="Esther_2_Van_Gogh",
         action="store",
         type=str,
         help="",
@@ -217,7 +214,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     run_style_transfer(
-        combined_folder_name=args.COMBINED_FOLDER_NAME,
         base_image_name=args.BASE_IMAGE_NAME,
         style_image_name=args.STYLE_IMAGE_NAME,
         content_weight=args.CONTENT_WEIGHT,
