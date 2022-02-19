@@ -6,6 +6,7 @@ from keras.applications.vgg19 import VGG19
 from resources.image_processing_components import *
 from resources.nst_components import *
 import tensorflow as tf
+from tqdm import tqdm
 from scipy.optimize import fmin_l_bfgs_b
 
 tf.compat.v1.disable_eager_execution()
@@ -21,7 +22,6 @@ def run_style_transfer(
     iterations: int,
 ):
 
-    combined_folder_name = combined_folder_name
     dir = os.path.join("images", "combined_images", combined_folder_name)
     if not os.path.exists(dir):
         os.mkdir(dir)
@@ -71,9 +71,6 @@ def run_style_transfer(
         "block5_conv1",
     ]
 
-    num_content_layers = len(content_layers)
-    num_style_layers = len(style_layers)
-
     outputs_dict = dict([(layer.name, layer.output) for layer in model.layers])
 
     content_weight = content_weight
@@ -120,7 +117,7 @@ def run_style_transfer(
     # storing best results here
     best_loss, best_iteration, best_img = float("inf"), 0, None
 
-    for i in range(iterations):
+    for i in tqdm(range(iterations)):
         # run the gradient-ascent process using SciPy’s L-BFGS algorithm,
         # saving the current generated image at each iteration of the algorithm
         x_opt, min_val, info = fmin_l_bfgs_b(
