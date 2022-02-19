@@ -133,7 +133,7 @@ def run_style_transfer(
 
         if min_val < best_loss:
             # Update best loss and best image from total loss.
-            print(f"iteration {i} results being saved now")
+            print(f"iteration {i} has the best loss")
             best_loss = min_val
             best_iteration = i
             best_img = x_opt.copy()
