@@ -169,7 +169,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--STYLE_IMAGE_NAME",
         "-sin",
-        default="van_gogh.jpg",
+        default="renoir.jpeg",
         action="store",
         type=str,
         help="",
@@ -178,7 +178,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--ITERATIONS",
         "-i",
-        default=1,
+        default=100,
         action="store",
         type=int,
         help="",
