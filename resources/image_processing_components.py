@@ -53,6 +53,6 @@ def plot_results(
     plt.title("Final Image", fontsize=20)
     plt.imshow(imgx)
 
-    plt.show()
-
     plt.savefig(CombinedPath + "/FINAL_3_results.png")
+
+    plt.show()
