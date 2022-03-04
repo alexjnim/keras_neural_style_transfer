@@ -12,6 +12,55 @@ from scipy.optimize import fmin_l_bfgs_b
 tf.compat.v1.disable_eager_execution()
 
 
+def get_combined_loss(
+    model,
+    content_weight,
+    style_weight,
+    total_variation_weight,
+    combination_image,
+    img_nrows,
+    img_ncols,
+):
+    # Content layer where will pull our feature maps
+    content_layers = "block5_conv2"
+
+    # Style layer we are interested in
+    style_layers = [
+        "block1_conv1",
+        "block2_conv1",
+        "block3_conv1",
+        "block4_conv1",
+        "block5_conv1",
+    ]
+
+    # get all the layers from model
+    outputs_dict = dict([(layer.name, layer.output) for layer in model.layers])
+
+    # get combined loss as a single scalar
+    loss = K.variable(0.0)
+    # get content loss from content layer
+    layer_features = outputs_dict[content_layers]
+    base_image_features = layer_features[0, :, :, :]
+    combination_features = layer_features[2, :, :, :]
+    loss = loss + content_weight * get_content_loss(
+        base_image_features, combination_features
+    )
+    # get style loss from all style layers
+    for layer_name in style_layers:
+        layer_features = outputs_dict[layer_name]
+        style_reference_features = layer_features[1, :, :, :]
+        combination_features = layer_features[2, :, :, :]
+        sl = get_style_loss(
+            style_reference_features, combination_features, img_nrows, img_ncols
+        )
+        loss = loss + (style_weight / len(style_layers)) * sl
+    # get variation loss
+    loss = loss + total_variation_weight * total_variation_loss(
+        combination_image, img_nrows, img_ncols
+    )
+    return loss
+
+
 def run_style_transfer(
     base_image_name: str,
     style_image_name: str,
@@ -53,48 +102,17 @@ def run_style_transfer(
         [base_image, style_reference_image, combination_image], axis=0
     )
 
-    from keras.applications.vgg19 import VGG19
-
     model = VGG19(input_tensor=input_tensor, include_top=False, weights="imagenet")
 
-    # Content layer where will pull our feature maps
-    content_layers = "block5_conv2"
-
-    # Style layer we are interested in
-    style_layers = [
-        "block1_conv1",
-        "block2_conv1",
-        "block3_conv1",
-        "block4_conv1",
-        "block5_conv1",
-    ]
-
-    outputs_dict = dict([(layer.name, layer.output) for layer in model.layers])
-
-    content_weight = content_weight
-    style_weight = style_weight
-    total_variation_weight = total_variation_weight
-
-    # combine these loss functions into a single scalar
-    loss = K.variable(0.0)
-    layer_features = outputs_dict[content_layers]
-    base_image_features = layer_features[0, :, :, :]
-    combination_features = layer_features[2, :, :, :]
-    loss = loss + content_weight * get_content_loss(
-        base_image_features, combination_features
-    )
-
-    for layer_name in style_layers:
-        layer_features = outputs_dict[layer_name]
-        style_reference_features = layer_features[1, :, :, :]
-        combination_features = layer_features[2, :, :, :]
-        sl = get_style_loss(
-            style_reference_features, combination_features, img_nrows, img_ncols
-        )
-        loss = loss + (style_weight / len(style_layers)) * sl
-
-    loss = loss + total_variation_weight * total_variation_loss(
-        combination_image, img_nrows, img_ncols
+    # get the combined loss function
+    loss = get_combined_loss(
+        model,
+        content_weight,
+        style_weight,
+        total_variation_weight,
+        combination_image,
+        img_nrows,
+        img_ncols,
     )
 
     # get the gradients of the generated image wrt the loss
@@ -105,11 +123,10 @@ def run_style_transfer(
         outputs += grads
     else:
         outputs.append(grads)
-
     f_outputs = K.function([combination_image], outputs)
-
     x_opt = preprocess_image(base_image_path, img_nrows, img_ncols)
 
+    # create evaluator to generate loss and gradients
     evaluator = Evaluator(img_nrows, img_ncols, f_outputs)
 
     # create variables for storing best results here
@@ -161,7 +178,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--BASE_IMAGE_NAME",
         "-b",
-        default="esther2.jpg",
+        default="alex_museum.jpg",
         action="store",
         type=str,
         help="",
@@ -169,7 +186,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--STYLE_IMAGE_NAME",
         "-s",
-        default="renoir.jpeg",
+        default="van_gogh_starry_night.jpeg",
         action="store",
         type=str,
         help="",
@@ -178,7 +195,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--ITERATIONS",
         "-i",
-        default=100,
+        default=200,
         action="store",
         type=int,
         help="",
@@ -187,7 +204,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--CONTENT_WEIGHT",
         "-cw",
-        default=0.5,
+        default=1,
         action="store",
         type=int,
         help="",
@@ -196,7 +213,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--STYLE_WEIGHT",
         "-sw",
-        default=0.5,
+        default=100,
         action="store",
         type=int,
         help="",
@@ -205,7 +222,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--TOTAL_VARIATION_WEIGHT",
         "-tvw",
-        default=0.5,
+        default=20,
         action="store",
         type=int,
         help="",
