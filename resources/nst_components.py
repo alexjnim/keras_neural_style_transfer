@@ -44,7 +44,13 @@ def gram_matrix(input_tensor):
     a = tf.reshape(input_tensor, [-1, channels])
     n = tf.shape(a)[0]
     gram = tf.matmul(a, a, transpose_a=True)
-    return gram  # /tf.cast(n, tf.float32)
+    return gram  # / tf.cast(n, tf.float32)
+
+
+# def gram_matrix(x):
+#     features = K.batch_flatten(K.permute_dimensions(x, (2, 0, 1)))
+#     gram = K.dot(features, K.transpose(features))
+#     return gram
 
 
 def get_style_loss(style, combination, img_nrows, img_ncols):
@@ -54,7 +60,7 @@ def get_style_loss(style, combination, img_nrows, img_ncols):
     C = gram_matrix(combination)
     channels = 3
     size = img_nrows * img_ncols
-    return K.sum(K.square(S - C))  # /(4.0 * (channels ** 2) * (size ** 2))
+    return K.sum(K.square(S - C)) / (4.0 * (channels**2) * (size**2))
 
 
 def total_variation_loss(x, img_nrows, img_ncols):
