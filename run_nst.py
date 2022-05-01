@@ -13,16 +13,18 @@ tf.compat.v1.disable_eager_execution()
 
 
 def get_combined_loss(
+    args,
     model,
-    content_weight,
-    style_weight,
-    total_variation_weight,
-    combination_image,
+    combined_image,
     img_nrows,
     img_ncols,
 ):
-    # Content layer where will pull our feature maps
-    content_layers = "block5_conv2"
+
+    # can check all the layers in the model with [layer.name for layer in model.layers]
+
+    # content layer we are interested in
+    # content_layer = "block5_conv4"
+    content_layer = "block5_conv2"
 
     # Style layer we are interested in
     style_layers = [
@@ -31,52 +33,60 @@ def get_combined_loss(
         "block3_conv1",
         "block4_conv1",
         "block5_conv1",
+        # "block1_conv2",
+        # "block2_conv2",
+        # "block3_conv2",
+        # "block4_conv2",
+        # "block5_conv2",
     ]
 
     # get all the layers from model
-    outputs_dict = dict([(layer.name, layer.output) for layer in model.layers])
+    layer_outputs_dict = dict([(layer.name, layer.output) for layer in model.layers])
 
     # get combined loss as a single scalar
     loss = K.variable(0.0)
     # get content loss from content layer
-    layer_features = outputs_dict[content_layers]
-    base_image_features = layer_features[0, :, :, :]
-    combination_features = layer_features[2, :, :, :]
-    loss = loss + content_weight * get_content_loss(
-        base_image_features, combination_features
+    content_features = layer_outputs_dict[content_layer]
+    base_image_content_features = content_features[0, :, :, :]
+    combined_image_content_features = content_features[2, :, :, :]
+    loss = loss + args.CONTENT_WEIGHT * get_content_loss(
+        base_image_content_features, combined_image_content_features
     )
+
     # get style loss from all style layers
     for layer_name in style_layers:
-        layer_features = outputs_dict[layer_name]
-        style_reference_features = layer_features[1, :, :, :]
-        combination_features = layer_features[2, :, :, :]
-        sl = get_style_loss(
-            style_reference_features, combination_features, img_nrows, img_ncols
+        layer_features = layer_outputs_dict[layer_name]
+        style_image_style_features = layer_features[1, :, :, :]
+        combined_image_style_features = layer_features[2, :, :, :]
+        style_loss = get_style_loss(
+            style_image_style_features,
+            combined_image_style_features,
+            img_nrows,
+            img_ncols,
         )
-        loss = loss + (style_weight / len(style_layers)) * sl
+        loss = loss + (args.STYLE_WEIGHT / len(style_layers)) * style_loss
+
     # get variation loss
-    loss = loss + total_variation_weight * total_variation_loss(
-        combination_image, img_nrows, img_ncols
+    loss = loss + args.TOTAL_VARIATION_WEIGHT * total_variation_loss(
+        combined_image, img_nrows, img_ncols
     )
     return loss
 
 
 def run_style_transfer(
-    base_image_name: str,
-    style_image_name: str,
-    content_weight: float,
-    style_weight: float,
-    total_variation_weight: float,
-    iterations: int,
+    args,
 ):
 
-    base_image_path = "images/base_images/" + base_image_name
-    style_image_path = "images/style_images/" + style_image_name
+    base_image_path = os.path.join("images/base_images/", args.BASE_IMAGE_NAME)
+    style_image_path = os.path.join("images/style_images/", args.STYLE_IMAGE_NAME)
     combined_folder_path = os.path.join(
         "images",
         "combined_images",
-        base_image_name.split(".")[0] + "_2_" + style_image_name.split(".")[0],
+        args.BASE_IMAGE_NAME.split(".")[0]
+        + "_2_"
+        + args.STYLE_IMAGE_NAME.split(".")[0],
     )
+
     if not os.path.exists(combined_folder_path):
         os.mkdir(combined_folder_path)
 
@@ -87,43 +97,37 @@ def run_style_transfer(
 
     # get tensor representations of our images
     base_image = K.variable(preprocess_image(base_image_path, img_nrows, img_ncols))
-    style_reference_image = K.variable(
-        preprocess_image(style_image_path, img_nrows, img_ncols)
-    )
+    style_image = K.variable(preprocess_image(style_image_path, img_nrows, img_ncols))
 
     # this will contain our generated image
     if K.image_data_format() == "channels_first":
-        combination_image = K.placeholder((1, 3, img_nrows, img_ncols))
+        combined_image = K.placeholder((1, 3, img_nrows, img_ncols))
     else:
-        combination_image = K.placeholder((1, img_nrows, img_ncols, 3))
+        combined_image = K.placeholder((1, img_nrows, img_ncols, 3))
 
     # combine the 3 images into a single Keras tensor
-    input_tensor = K.concatenate(
-        [base_image, style_reference_image, combination_image], axis=0
-    )
+    input_tensor = K.concatenate([base_image, style_image, combined_image], axis=0)
 
     model = VGG19(input_tensor=input_tensor, include_top=False, weights="imagenet")
 
     # get the combined loss function
     loss = get_combined_loss(
+        args,
         model,
-        content_weight,
-        style_weight,
-        total_variation_weight,
-        combination_image,
+        combined_image,
         img_nrows,
         img_ncols,
     )
 
     # get the gradients of the generated image wrt the loss
-    grads = K.gradients(loss, combination_image)
+    grads = K.gradients(loss, combined_image)
 
     outputs = [loss]
     if isinstance(grads, (list, tuple)):
         outputs += grads
     else:
         outputs.append(grads)
-    f_outputs = K.function([combination_image], outputs)
+    f_outputs = K.function([combined_image], outputs)
     x_opt = preprocess_image(base_image_path, img_nrows, img_ncols)
 
     # create evaluator to generate loss and gradients
@@ -132,7 +136,7 @@ def run_style_transfer(
     # create variables for storing best results here
     best_loss, best_iteration, best_img = float("inf"), 0, None
 
-    for i in tqdm(range(iterations)):
+    for i in tqdm(range(args.ITERATIONS)):
         # run the gradient-ascent process using SciPy’s L-BFGS algorithm,
         # saving the current generated image at each iteration of the algorithm
         x_opt, min_val, info = fmin_l_bfgs_b(
@@ -178,7 +182,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--BASE_IMAGE_NAME",
         "-b",
-        default="alex_museum.jpg",
+        default="esther2.jpg",
         action="store",
         type=str,
         help="",
@@ -186,7 +190,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--STYLE_IMAGE_NAME",
         "-s",
-        default="van_gogh_starry_night.jpeg",
+        default="picasso.jpeg",
         action="store",
         type=str,
         help="",
@@ -229,12 +233,4 @@ if __name__ == "__main__":
     )
 
     args = parser.parse_args()
-
-    run_style_transfer(
-        base_image_name=args.BASE_IMAGE_NAME,
-        style_image_name=args.STYLE_IMAGE_NAME,
-        content_weight=args.CONTENT_WEIGHT,
-        style_weight=args.STYLE_WEIGHT,
-        total_variation_weight=args.TOTAL_VARIATION_WEIGHT,
-        iterations=args.ITERATIONS,
-    )
+    run_style_transfer(args)
