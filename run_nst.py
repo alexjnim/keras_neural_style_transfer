@@ -78,7 +78,7 @@ def run_style_transfer(
 ):
 
     content_image_path = os.path.join("images/content_images/", args.CONTENT_IMAGE_NAME)
-    style_image_path = os.path.join("images/style_images/", args.STYLE_IMAGE_NAcE)
+    style_image_path = os.path.join("images/style_images/", args.STYLE_IMAGE_NAME)
     combined_folder_path = os.path.join(
         "images",
         "combined_images",
