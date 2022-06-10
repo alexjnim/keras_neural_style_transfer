@@ -33,16 +33,16 @@ def deprocess_image(x, img_nrows, img_ncols):
 
 
 def plot_results(
-    best_img, base_image_path, style_image_path, img_nrows, img_ncols, CombinedPath
+    best_img, content_image_path, style_image_path, img_nrows, img_ncols, CombinedPath
 ):
 
     imgx = deprocess_image(best_img.copy(), img_nrows, img_ncols)
 
     plt.figure(figsize=(50, 50))
     plt.subplot(5, 5, 1)
-    plt.title("Base Image", fontsize=20)
-    img_base = load_img(base_image_path)
-    plt.imshow(img_base)
+    plt.title("Content Image", fontsize=20)
+    img_content = load_img(content_image_path)
+    plt.imshow(img_content)
 
     plt.subplot(5, 5, 1 + 1)
     plt.title("Style Image", fontsize=20)
